@@ -159,37 +159,6 @@ export function Layout() {
           </div>
         </header>
 
-        {/* Monthly Privacy Mode Backup Banner */}
-        {currentUser?.isPrivacyMode && (
-          <div
-            style={{
-              background: "color-mix(in srgb, var(--accent) 12%, var(--surface))",
-              borderBottom: "1px solid var(--line)",
-              padding: "10px 20px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              fontSize: "12px",
-              color: "var(--ink)"
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Shield size={16} color="var(--accent)" />
-              <span>
-                <strong>Privacy Mode Active:</strong> All data is stored 100% locally on this device. Export your JSON backup monthly!
-              </span>
-            </div>
-            <button
-              className="btn btn-primary"
-              onClick={handleExportBackup}
-              style={{ padding: "5px 12px", fontSize: "11.5px", gap: "5px", whiteSpace: "nowrap" }}
-            >
-              <Download size={13} /> Export JSON
-            </button>
-          </div>
-        )}
-
         <Outlet />
         <Chatbot />
       </main>

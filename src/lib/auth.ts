@@ -44,6 +44,33 @@ function saveUsers(users: StoredUser[]) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
+export function validateIdentifier(input: string): { isValid: boolean; type?: "email" | "mobile"; error?: string } {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return { isValid: false, error: "Please enter an email address or mobile number." };
+  }
+
+  if (trimmed.includes("@")) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      return { isValid: false, error: "Please enter a valid email address (e.g. name@example.com)." };
+    }
+    return { isValid: true, type: "email" };
+  }
+
+  const cleanDigits = trimmed.replace(/[\s\-\+\(\)]/g, "");
+  const isNumeric = /^\d+$/.test(cleanDigits);
+
+  if (isNumeric) {
+    if (cleanDigits.length < 7 || cleanDigits.length > 15) {
+      return { isValid: false, error: "Mobile number must be between 7 and 15 digits (e.g. 10-digit mobile number)." };
+    }
+    return { isValid: true, type: "mobile" };
+  }
+
+  return { isValid: false, error: "Please enter a valid email address or 10-digit mobile number." };
+}
+
 export const auth = {
   getCurrentUser(): User | null {
     try {
@@ -68,9 +95,11 @@ export const auth = {
     const trimmedId = identifier.trim().toLowerCase();
     const trimmedName = name.trim() || trimmedId.split("@")[0];
 
-    if (!trimmedId) {
-      return { success: false, error: "Please enter an email address or mobile number." };
+    const validation = validateIdentifier(trimmedId);
+    if (!validation.isValid) {
+      return { success: false, error: validation.error };
     }
+
     if (!password || password.length < 4) {
       return { success: false, error: "Password must be at least 4 characters long." };
     }
@@ -117,8 +146,14 @@ export const auth = {
 
   login(identifier: string, password: string, isPrivacyMode = false): { success: boolean; user?: User; error?: string } {
     const trimmedId = identifier.trim().toLowerCase();
-    if (!trimmedId || !password) {
-      return { success: false, error: "Please enter your email/phone and password." };
+
+    const validation = validateIdentifier(trimmedId);
+    if (!validation.isValid) {
+      return { success: false, error: validation.error };
+    }
+
+    if (!password) {
+      return { success: false, error: "Please enter your password." };
     }
 
     const users = getStoredUsers();

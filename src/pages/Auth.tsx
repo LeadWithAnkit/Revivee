@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { Shield, Sparkles, User, Lock, Mail, Phone, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../context";
+import { validateIdentifier } from "../lib/auth";
 import { Card, SectionTitle } from "../components/ui";
 
 export default function Auth() {
@@ -25,6 +26,18 @@ export default function Auth() {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+
+    // Validate identifier format (Email or Mobile digits matching)
+    const val = validateIdentifier(identifier);
+    if (!val.isValid) {
+      setError(val.error || "Please enter a valid email or 10-digit mobile number.");
+      return;
+    }
+
+    if (mode === "signup" && name.trim().length < 2) {
+      setError("Please enter your full name (at least 2 characters).");
+      return;
+    }
 
     if (mode === "login") {
       const res = login(identifier, password, isPrivacyMode);
@@ -317,7 +330,7 @@ export default function Auth() {
                     <span>Privacy Mode (Local-Only Storage)</span>
                   </div>
                   <p className="muted" style={{ fontSize: "11.5px", margin: "3px 0 0", lineHeight: "1.45" }}>
-                    Data is stored 100% on this device (offline PWA mode). No cloud or MongoDB sync. Remember to export JSON backup monthly!
+                    Tick this banner to bypass cloud account creation and store all data 100% locally on your device (offline PWA mode). Remember to export your JSON backup monthly!
                   </p>
                 </div>
               </label>

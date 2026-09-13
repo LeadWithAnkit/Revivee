@@ -1,12 +1,14 @@
 import { useRef } from "react";
-import { FileJson, ShieldCheck, Upload, Download } from "lucide-react";
+import { FileJson, ShieldCheck, Upload, Download, Shield } from "lucide-react";
 import { Card, Button, SectionTitle } from "../components/ui";
 import { db } from "../lib/db";
 import { useAppData } from "../hooks/useAppData";
+import { useAuth } from "../context";
 
 export default function Settings() {
   const input = useRef<HTMLInputElement>(null);
   const { refresh } = useAppData();
+  const { currentUser } = useAuth();
 
   const exportData = async () => {
     const data = await db.exportAll();
@@ -14,7 +16,7 @@ export default function Settings() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `revive-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `revive-privacy-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -38,6 +40,28 @@ export default function Settings() {
         title="Control your data & account privacy."
         body="REVIVE keeps your data completely local, private, and secure inside your browser's IndexedDB storage. You can export or import your full history anytime."
       />
+
+      {/* Monthly Privacy Mode Backup Alert (Only for Local-Only / Privacy Mode users) */}
+      {currentUser?.isPrivacyMode && (
+        <Card style={{ background: "color-mix(in srgb, var(--accent) 12%, var(--surface))", border: "1px solid var(--accent)", marginBottom: "20px" }}>
+          <div className="privacy-banner-container">
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: "1" }}>
+              <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "var(--accent)", display: "grid", placeItems: "center", color: "#fff", flexShrink: 0 }}>
+                <Shield size={20} />
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>Monthly Backup Reminder (Privacy Mode Active)</h4>
+                <p className="muted" style={{ margin: "3px 0 0", fontSize: "12px", lineHeight: "1.45" }}>
+                  Your account is operating in Privacy Mode (Local-Only Storage). Data is stored 100% on this device and not synced to cloud MongoDB servers. Remember to export your JSON backup monthly!
+                </p>
+              </div>
+            </div>
+            <Button onClick={exportData} variant="primary" style={{ padding: "8px 16px", fontSize: "12px", gap: "6px", flexShrink: 0 }}>
+              <Upload size={15} /> Export Monthly JSON Backup
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="settings-grid">
         {/* Card 1: How to use Import & Export */}

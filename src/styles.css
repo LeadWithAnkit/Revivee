@@ -479,9 +479,26 @@
     align-items: center !important;
     width: 100% !important;
   }
+}
 
-  .focus-context {
-    width: 100% !important;
+/* Responsive Privacy Mode Reminder Card */
+.privacy-banner-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+@media (max-width: 760px) {
+  .privacy-banner-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .privacy-banner-container .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
+
 
