@@ -102,79 +102,16 @@ async function putLocal<T>(store: string, value: T) {
   });
 }
 
-const defaultSeptemberObs: Observation = {
-  date: "2026-09-01",
-  sleepHours: 7.5,
-  sleepQuality: 8,
-  awakenings: 0,
-  daytimeSleepiness: 3,
-  walkKm: 3.5,
-  pushups: 25,
-  sunlightMinutes: 20,
-  mobilityMinutes: 15,
-  cardioMinutes: 0,
-  fluidLitres: 2.8,
-  thirst: 4,
-  urineFrequency: 5,
-  urineColour: 2,
-  unusualUrineSmell: false,
-  mealSize: "normal",
-  postMealHeaviness: 3,
-  postMealSleepiness: 3,
-  appetite: "normal",
-  energy: 8,
-  headache: false,
-  muscleAches: false,
-  dryMouth: false,
-  eyeFatigue: false,
-  somaticFatigue: false,
-  tasteChanges: false,
-  toothSensation: false,
-  digestion: "Smooth energy after balanced lunch.",
-  motivation: 8,
-  concentration: 9,
-  enjoyment: 8,
-  emotionalEngagement: 7,
-  studyStress: 3,
-  escapeUrge: 2,
-  phoneUrges: 2,
-  focusedMinutes: 120,
-  focusBlocks: 3,
-  subjects: "Cognitive Science & React Architecture",
-  distractions: "Minor phone notifications",
-  helped: "60-second breathing pause & 25m Pomodoro blocks.",
-  notes: "September Day 1 dummy entry created successfully for REVIVE test!"
-};
-
-const defaultSeptemberSess: StudySession = {
-  id: "sep-1-session-1",
-  date: "2026-09-01",
-  subject: "Cognitive Psychology",
-  topic: "Attention span & working memory recovery",
-  minutes: 45,
-  focus: 9,
-  distractions: 1,
-  completed: true,
-  note: "High focus session on 1 September."
-};
-
 async function allLocal<T>(store: string): Promise<T[]> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, "readonly");
     const req = tx.objectStore(store).getAll();
-    req.onsuccess = async () => { 
+    req.onsuccess = () => { 
       db.close(); 
-      const res = req.result as T[];
-      if (res.length === 0 && store === "observations") {
-        await putLocal("observations", defaultSeptemberObs);
-        await putLocal("sessions", defaultSeptemberSess);
-        resolve([defaultSeptemberObs as unknown as T]);
-      } else {
-        resolve(res); 
-      }
+      resolve(req.result as T[]); 
     };
-    req.onerror = () => { db.close(); reject(req.error); };
+    req.onerror = () => { db.close(); reject(tx.error); };
   });
 }
 
