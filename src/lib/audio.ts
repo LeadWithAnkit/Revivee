@@ -128,52 +128,80 @@ export const soundscapeDatabase: SoundscapeItem[] = [
 class FocusSoundEngine {
   private ctx: AudioContext | null = null;
   private activeNodes: (AudioBufferSourceNode | OscillatorNode)[] = [];
+  private intermediateNodes: AudioNode[] = [];
   private gainNode: GainNode | null = null;
   private isPlaying = false;
   private currentSoundId: string | null = null;
+  private masterVol = 0.45;
+  private stopTimeoutId: number | null = null;
+
+  constructor() {
+    const saved = localStorage.getItem("revive_master_volume");
+    if (saved !== null) {
+      const parsed = parseFloat(saved);
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+        this.masterVol = parsed;
+      }
+    }
+  }
 
   private initCtx() {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
+      this.ctx.onstatechange = () => {
+        if (this.ctx && this.ctx.state === "suspended" && this.isPlaying) {
+          this.ctx.resume().catch(() => {});
+        }
+      };
     }
     if (this.ctx.state === "suspended") {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
   }
 
   public playSound(item: SoundscapeItem) {
-    this.stop(); // Stop all existing nodes
+    // Cancel any pending stop timeouts from previous calls to prevent premature node killing
+    if (this.stopTimeoutId !== null) {
+      clearTimeout(this.stopTimeoutId);
+      this.stopTimeoutId = null;
+    }
+
+    this.stopImmediate(); // Instantly tear down existing nodes without delay
     this.initCtx();
     if (!this.ctx) return;
 
     this.gainNode = this.ctx.createGain();
-    this.gainNode.gain.setValueAtTime(0.18, this.ctx.currentTime);
+    const now = this.ctx.currentTime;
+    // Smooth linear gain ramp to eliminate audio clicks
+    this.gainNode.gain.setValueAtTime(0.001, now);
+    this.gainNode.gain.linearRampToValueAtTime(this.masterVol, now + 0.15);
     this.gainNode.connect(this.ctx.destination);
 
     if (item.freqLeft && item.freqRight) {
-      // Binaural or Pure Tone Frequency
+      // Binaural or Pure Frequency Synthesizer
       const oscLeft = this.ctx.createOscillator();
       const oscRight = this.ctx.createOscillator();
       const merger = this.ctx.createChannelMerger(2);
 
       oscLeft.type = "sine";
-      oscLeft.frequency.setValueAtTime(item.freqLeft, this.ctx.currentTime);
+      oscLeft.frequency.setValueAtTime(item.freqLeft, now);
 
       oscRight.type = "sine";
-      oscRight.frequency.setValueAtTime(item.freqRight, this.ctx.currentTime);
+      oscRight.frequency.setValueAtTime(item.freqRight, now);
 
       oscLeft.connect(merger, 0, 0);
       oscRight.connect(merger, 0, 1);
       merger.connect(this.gainNode);
 
-      oscLeft.start();
-      oscRight.start();
+      oscLeft.start(now);
+      oscRight.start(now);
 
       this.activeNodes.push(oscLeft, oscRight);
+      this.intermediateNodes.push(merger);
     } else {
-      // Noise Soundscape Generator
-      const bufferSize = this.ctx.sampleRate * 2;
+      // Noise Soundscape Generator (Brown / Pink / White)
+      const bufferSize = this.ctx.sampleRate * 3; // 3 second continuous looping buffer
       const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
       let lastOut = 0.0;
@@ -183,13 +211,13 @@ class FocusSoundEngine {
         if (item.noiseType === "brown") {
           output[i] = (lastOut + 0.02 * white) / 1.02;
           lastOut = output[i];
-          output[i] *= 3.5;
+          output[i] *= 3.2;
         } else if (item.noiseType === "pink") {
           output[i] = (lastOut + 0.05 * white) / 1.05;
           lastOut = output[i];
-          output[i] *= 2.2;
+          output[i] *= 2.0;
         } else {
-          output[i] = white * 0.4;
+          output[i] = white * 0.35;
         }
       }
 
@@ -199,20 +227,21 @@ class FocusSoundEngine {
 
       const filter = this.ctx.createBiquadFilter();
       filter.type = item.noiseType === "brown" ? "lowpass" : "bandpass";
-      filter.frequency.setValueAtTime(item.filterFreq || 600, this.ctx.currentTime);
+      filter.frequency.setValueAtTime(item.filterFreq || 600, now);
 
       noiseSource.connect(filter);
       filter.connect(this.gainNode);
-      noiseSource.start();
+      noiseSource.start(now);
 
       this.activeNodes.push(noiseSource);
+      this.intermediateNodes.push(filter);
     }
 
     this.isPlaying = true;
     this.currentSoundId = item.id;
   }
 
-  public stop() {
+  private stopImmediate() {
     this.activeNodes.forEach(node => {
       try {
         node.stop();
@@ -223,6 +252,15 @@ class FocusSoundEngine {
     });
     this.activeNodes = [];
 
+    this.intermediateNodes.forEach(node => {
+      try {
+        node.disconnect();
+      } catch {
+        // Safe catch
+      }
+    });
+    this.intermediateNodes = [];
+
     if (this.gainNode) {
       try {
         this.gainNode.disconnect();
@@ -231,28 +269,80 @@ class FocusSoundEngine {
       }
       this.gainNode = null;
     }
+  }
 
-    if (this.ctx && this.ctx.state === "running") {
+  public stop() {
+    if (this.stopTimeoutId !== null) {
+      clearTimeout(this.stopTimeoutId);
+      this.stopTimeoutId = null;
+    }
+
+    if (this.gainNode && this.ctx && this.ctx.state === "running") {
       try {
-        this.ctx.suspend();
+        const now = this.ctx.currentTime;
+        this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+        this.gainNode.gain.linearRampToValueAtTime(0.0001, now + 0.12);
       } catch {
         // Safe catch
       }
     }
 
+    // Capture nodes to tear down after fade-out
+    const nodesToStop = [...this.activeNodes];
+    const intersToStop = [...this.intermediateNodes];
+    const gainToStop = this.gainNode;
+
+    this.activeNodes = [];
+    this.intermediateNodes = [];
+    this.gainNode = null;
     this.isPlaying = false;
     this.currentSoundId = null;
+
+    this.stopTimeoutId = window.setTimeout(() => {
+      nodesToStop.forEach(node => {
+        try {
+          node.stop();
+          node.disconnect();
+        } catch {
+          // Safe catch
+        }
+      });
+      intersToStop.forEach(node => {
+        try {
+          node.disconnect();
+        } catch {
+          // Safe catch
+        }
+      });
+      if (gainToStop) {
+        try {
+          gainToStop.disconnect();
+        } catch {
+          // Safe catch
+        }
+      }
+      this.stopTimeoutId = null;
+    }, 130);
   }
 
   public setVolume(vol: number) {
+    const clamped = Math.max(0, Math.min(1, vol));
+    this.masterVol = clamped;
+    localStorage.setItem("revive_master_volume", clamped.toString());
     if (this.gainNode && this.ctx) {
-      this.gainNode.gain.setValueAtTime(Math.max(0, Math.min(1, vol)), this.ctx.currentTime);
+      this.gainNode.gain.setValueAtTime(clamped, this.ctx.currentTime);
     }
   }
 
+  public getVolume() {
+    return this.masterVol;
+  }
+
   public getStatus() {
-    return { isPlaying: this.isPlaying, currentSoundId: this.currentSoundId };
+    return { isPlaying: this.isPlaying, currentSoundId: this.currentSoundId, volume: this.masterVol };
   }
 }
 
 export const focusAudio = new FocusSoundEngine();
+
+

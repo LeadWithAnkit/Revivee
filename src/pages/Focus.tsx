@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pause, Play, RotateCcw, Shield, TimerReset, Volume2, VolumeX, Gamepad2, Tv, X, Sparkles, Brain, Check, RefreshCw, ExternalLink, Link2, Shuffle } from "lucide-react";
+import { Pause, Play, RotateCcw, Shield, TimerReset, Volume2, VolumeX, Gamepad2, Tv, X, Sparkles, Brain, Check, RefreshCw, ExternalLink, Link2, Shuffle, Plus, Trash2, Eye, Ear, Hand, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button, Card, Metric, SectionTitle } from "../components/ui";
 import { db } from "../lib/db";
@@ -143,13 +143,81 @@ export default function Focus() {
   const [activeSoundId, setActiveSoundId] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.2);
 
-  // Stopwatch & Mind Game State
-  const [swTime, setSwTime] = useState(0);
-  const [swRunning, setSwRunning] = useState(false);
-  const [activeGame, setActiveGame] = useState<"breath" | "memory">("breath");
-  const [memSequence, setMemSequence] = useState<number[]>([]);
-  const [memInput, setMemInput] = useState("");
-  const [memResult, setMemResult] = useState<"idle" | "success" | "fail">("idle");
+  // Interactive Exercises State
+  const [activeExercise, setActiveExercise] = useState<"reset60" | "friction" | "unload" | "anchor">("reset60");
+  
+  // 1. 60s Reset Interactive State
+  const [reset60Step, setReset60Step] = useState(0);
+  const [reset60Timer, setReset60Timer] = useState(60);
+  const [reset60Active, setReset60Active] = useState(false);
+
+  // 2. Friction Breaker State
+  const [bigTaskInput, setBigTaskInput] = useState("");
+  const [shrunkSteps, setShrunkSteps] = useState<{ step: string; mins: number }[]>([]);
+
+  // 3. Mental Unload Workspace State
+  const [thoughtInput, setThoughtInput] = useState("");
+  const [thoughtTag, setThoughtTag] = useState<"now" | "later" | "drop">("now");
+  const [unloadItems, setUnloadItems] = useState<{ id: string; text: string; tag: "now" | "later" | "drop" }[]>([
+    { id: "1", text: "Solve 1 basic question", tag: "now" },
+    { id: "2", text: "Review tomorrow's formula sheet", tag: "later" }
+  ]);
+
+  // 4. Sensory Anchor Step State
+  const [anchorStep, setAnchorStep] = useState(0);
+
+  // 60s Reset Timer Effect
+  useEffect(() => {
+    if (!reset60Active) return;
+    const interval = setInterval(() => {
+      setReset60Timer(t => {
+        if (t <= 1) {
+          setReset60Active(false);
+          soothingSounds.playCompletionChime();
+          return 0;
+        }
+        if (t % 15 === 0 && t < 60) {
+          setReset60Step(s => Math.min(3, s + 1));
+          soothingSounds.playPhaseChime();
+        } else {
+          soothingSounds.playTick();
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [reset60Active]);
+
+  // Handle Shrinking Task
+  const handleShrinkTask = () => {
+    if (!bigTaskInput.trim()) return;
+    const task = bigTaskInput.trim();
+    setShrunkSteps([
+      { step: `Open ${task} & view page/file 1`, mins: 2 },
+      { step: `Complete micro-part #1 of ${task}`, mins: 5 },
+      { step: `Review or decide whether to stop`, mins: 5 }
+    ]);
+  };
+
+  const launchMicroStep = (stepText: string, durationMins: number) => {
+    setTopic(stepText.slice(0, 30));
+    setMinutes(durationMins);
+    setLeft(durationMins * 60);
+    setRunning(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Mental Unload Handlers
+  const handleAddThought = () => {
+    if (!thoughtInput.trim()) return;
+    setUnloadItems(prev => [...prev, { id: crypto.randomUUID(), text: thoughtInput.trim(), tag: thoughtTag }]);
+    setThoughtInput("");
+  };
+
+  const handleDeleteThought = (id: string) => {
+    setUnloadItems(prev => prev.filter(item => item.id !== id));
+  };
+
 
   // Video Shuffling & Modal State
   const [shuffleOffset, setShuffleOffset] = useState(0);
@@ -206,14 +274,7 @@ export default function Focus() {
     return () => clearInterval(id);
   }, [running, soundEnabled]);
 
-  // Stopwatch Effect
-  useEffect(() => {
-    if (!swRunning) return;
-    const id = setInterval(() => {
-      setSwTime(t => t + 10);
-    }, 10);
-    return () => clearInterval(id);
-  }, [swRunning]);
+
 
   const mm = String(Math.floor(left / 60)).padStart(2, "0");
   const ss = String(left % 60).padStart(2, "0");
@@ -259,22 +320,6 @@ export default function Focus() {
     focusAudio.setVolume(v);
   };
 
-  // Memory Game Logic
-  const startMemoryGame = () => {
-    const seq = Array.from({ length: 5 }, () => Math.floor(Math.random() * 9) + 1);
-    setMemSequence(seq);
-    setMemInput("");
-    setMemResult("idle");
-  };
-
-  const checkMemory = () => {
-    if (memInput === memSequence.join("")) {
-      setMemResult("success");
-    } else {
-      setMemResult("fail");
-    }
-  };
-
   // Custom Video Load Handler
   const loadCustomVideo = () => {
     if (!customUrl.trim()) return;
@@ -300,10 +345,6 @@ export default function Focus() {
     }
   };
 
-  // Format Stopwatch
-  const swMinutes = String(Math.floor(swTime / 60000)).padStart(2, "0");
-  const swSeconds = String(Math.floor((swTime % 60000) / 1000)).padStart(2, "0");
-  const swMillis = String(Math.floor((swTime % 1000) / 100));
 
   return (
     <div className="page focus-page">
@@ -502,130 +543,384 @@ export default function Focus() {
           </div>
         </Card>
 
-        {/* 2. Mind Games & Live Stopwatch Card */}
-        <Card style={{ padding: "26px" }}>
+        {/* 2. Interactive Attention & Task Initiation System */}
+        <Card style={{ padding: "clamp(16px, 3.5vw, 26px)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <Gamepad2 size={20} color="var(--accent)" />
+              <Brain size={20} color="var(--accent)" />
               <span className="eyebrow" style={{ margin: 0 }}>
-                Mind Focus Exercises
+                Attention & Task Initiation Protocols
               </span>
             </div>
-            {/* Live Stopwatch Clock Display */}
-            <div
-              style={{
-                font: "700 15px 'DM Mono', monospace",
-                background: "var(--surface-2)",
-                padding: "6px 12px",
-                borderRadius: "8px",
-                border: "1px solid var(--line)",
-                color: "var(--accent)"
-              }}
-            >
-              ⏱️ {swMinutes}:{swSeconds}.{swMillis}
-            </div>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
+          <p className="muted" style={{ fontSize: "12.5px", marginBottom: "16px", lineHeight: "1.5" }}>
+            Interactive behavioral protocols to reduce task initiation friction, clear working memory clutter, and anchor attention.
+          </p>
+
+          {/* Responsive Exercise Filter Tabs */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "20px", width: "100%" }}>
             <button
-              className={`filter-pill ${activeGame === "breath" ? "active" : ""}`}
-              onClick={() => setActiveGame("breath")}
-              style={{ padding: "6px 12px", borderRadius: "99px", fontSize: "11px", border: "1px solid var(--line)", background: activeGame === "breath" ? "var(--accent-soft)" : "transparent", color: activeGame === "breath" ? "var(--accent)" : "var(--muted)", fontWeight: 700 }}
+              className={`filter-pill ${activeExercise === "reset60" ? "active" : ""}`}
+              onClick={() => setActiveExercise("reset60")}
+              style={{ padding: "8px 14px", borderRadius: "99px", fontSize: "11.5px", border: "1px solid var(--line)", background: activeExercise === "reset60" ? "var(--accent-soft)" : "transparent", color: activeExercise === "reset60" ? "var(--accent)" : "var(--muted)", fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}
             >
-              1. Single-Point Breath Hold
+              1. 60s Attention Reset
             </button>
             <button
-              className={`filter-pill ${activeGame === "memory" ? "active" : ""}`}
-              onClick={() => setActiveGame("memory")}
-              style={{ padding: "6px 12px", borderRadius: "99px", fontSize: "11px", border: "1px solid var(--line)", background: activeGame === "memory" ? "var(--accent-soft)" : "transparent", color: activeGame === "memory" ? "var(--accent)" : "var(--muted)", fontWeight: 700 }}
+              className={`filter-pill ${activeExercise === "friction" ? "active" : ""}`}
+              onClick={() => setActiveExercise("friction")}
+              style={{ padding: "8px 14px", borderRadius: "99px", fontSize: "11.5px", border: "1px solid var(--line)", background: activeExercise === "friction" ? "var(--accent-soft)" : "transparent", color: activeExercise === "friction" ? "var(--accent)" : "var(--muted)", fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}
             >
-              2. 5-Digit Working Memory Sprint
+              2. Task Shrinker
+            </button>
+            <button
+              className={`filter-pill ${activeExercise === "unload" ? "active" : ""}`}
+              onClick={() => setActiveExercise("unload")}
+              style={{ padding: "8px 14px", borderRadius: "99px", fontSize: "11.5px", border: "1px solid var(--line)", background: activeExercise === "unload" ? "var(--accent-soft)" : "transparent", color: activeExercise === "unload" ? "var(--accent)" : "var(--muted)", fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}
+            >
+              3. Mental Unload
+            </button>
+            <button
+              className={`filter-pill ${activeExercise === "anchor" ? "active" : ""}`}
+              onClick={() => setActiveExercise("anchor")}
+              style={{ padding: "8px 14px", borderRadius: "99px", fontSize: "11.5px", border: "1px solid var(--line)", background: activeExercise === "anchor" ? "var(--accent-soft)" : "transparent", color: activeExercise === "anchor" ? "var(--accent)" : "var(--muted)", fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}
+            >
+              4. 3-Sense Anchor
             </button>
           </div>
 
-          {/* Game 1: Single Point Breath & Attention Hold */}
-          {activeGame === "breath" && (
-            <div style={{ textAlign: "center", padding: "10px 0" }}>
-              <p className="muted" style={{ fontSize: "12.5px", marginBottom: "14px" }}>
-                Focus your vision on the rhythmic pulse below. Press start on the live stopwatch to train attention hold.
-              </p>
-              <div
-                style={{
-                  width: "90px",
-                  height: "90px",
-                  margin: "0 auto 16px",
-                  borderRadius: "50%",
-                  background: "var(--accent-soft)",
-                  border: "2px solid var(--accent)",
-                  display: "grid",
-                  placeItems: "center",
-                  animation: swRunning ? "savePulse 4s infinite ease-in-out" : "none"
-                }}
-              >
-                <Brain size={32} color="var(--accent)" />
+          {/* Exercise 1: 60-Second Guided Visual Attention Reset */}
+          {activeExercise === "reset60" && (
+            <div style={{ background: "var(--surface-2)", padding: "clamp(14px, 3vw, 20px)", borderRadius: "16px", border: "1px solid var(--line)", width: "100%", boxSizing: "border-box" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                <span className="eyebrow" style={{ color: "var(--accent)", margin: 0, fontSize: "10px" }}>
+                  WHY: Restores vagal tone & clears pre-task restlessness
+                </span>
+                <span style={{ font: "700 12px 'DM Mono', monospace", color: "var(--accent)", background: "var(--surface)", padding: "4px 10px", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                  ⏱️ {reset60Timer}s
+                </span>
               </div>
 
-              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-                <Button variant="soft" onClick={() => setSwRunning(r => !r)}>
-                  {swRunning ? <Pause size={15} /> : <Play size={15} />} {swRunning ? "Pause Clock" : "Start Stopwatch"}
+              <h4 style={{ margin: "0 0 12px", fontSize: "16px", color: "var(--ink)", fontWeight: 700 }}>Interactive 60s Attention Reset</h4>
+
+              {/* Step Visual Pulse Focal Point */}
+              <div
+                style={{
+                  width: "100px",
+                  height: "100px",
+                  margin: "12px auto 18px",
+                  borderRadius: "50%",
+                  border: "2px solid var(--accent)",
+                  background: "color-mix(in srgb, var(--accent-soft) 50%, transparent)",
+                  display: "grid",
+                  placeItems: "center",
+                  animation: reset60Active ? "savePulse 3.5s infinite ease-in-out" : "none",
+                  boxShadow: reset60Active ? "0 0 25px color-mix(in srgb, var(--accent) 35%, transparent)" : "none"
+                }}
+              >
+                <Brain size={36} color="var(--accent)" />
+              </div>
+
+              {/* Guided Steps Carousel */}
+              <div style={{ display: "grid", gap: "8px", marginBottom: "18px" }}>
+                {[
+                  "1. Move phone & extra browser tabs out of direct sight.",
+                  "2. Rest your visual focus on the center pulse ring above.",
+                  "3. Take 2–3 comfortable slow breaths. (Stop if feeling dizzy).",
+                  "4. Define the single 5-minute micro-task you will start next."
+                ].map((stepText, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      background: reset60Step === idx ? "var(--accent-soft)" : "var(--surface)",
+                      border: reset60Step === idx ? "1px solid var(--accent)" : "1px solid var(--line)",
+                      color: reset60Step === idx ? "var(--ink)" : "var(--muted)",
+                      fontWeight: reset60Step === idx ? 700 : 500,
+                      fontSize: "12.5px",
+                      transition: "all 0.25s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px"
+                    }}
+                  >
+                    <span style={{ font: "700 12px 'DM Mono', monospace", color: reset60Step === idx ? "var(--accent)" : "var(--muted)" }}>0{idx + 1}</span>
+                    <span>{stepText}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Controls & Launch */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
+                <Button
+                  onClick={() => setReset60Active(a => !a)}
+                  style={{ flex: 1, minWidth: "150px", justifyContent: "center" }}
+                >
+                  {reset60Active ? <Pause size={15} /> : <Play size={15} />}
+                  <span>{reset60Active ? "Pause 60s Reset" : "Start 60s Guided Reset"}</span>
                 </Button>
                 <button
                   className="btn btn-ghost"
                   onClick={() => {
-                    setSwRunning(false);
-                    setSwTime(0);
+                    setReset60Active(false);
+                    setReset60Timer(60);
+                    setReset60Step(0);
                   }}
+                  style={{ padding: "8px 14px" }}
                 >
                   <RotateCcw size={15} /> Reset
                 </button>
+                <Button
+                  variant="soft"
+                  onClick={() => launchMicroStep("Micro Focus", 5)}
+                  style={{ flex: 1, minWidth: "180px", justifyContent: "center" }}
+                >
+                  <Sparkles size={15} /> Launch 5m Focus Session
+                </Button>
               </div>
             </div>
           )}
 
-          {/* Game 2: Working Memory Sprint */}
-          {activeGame === "memory" && (
-            <div style={{ padding: "10px 0" }}>
-              <p className="muted" style={{ fontSize: "12.5px", marginBottom: "12px" }}>
-                Memorize the generated sequence, then type it back. Uses the live clock to measure cognitive speed.
+          {/* Exercise 2: Interactive Task Shrinker (Friction Breaker) */}
+          {activeExercise === "friction" && (
+            <div style={{ background: "var(--surface-2)", padding: "clamp(14px, 3vw, 20px)", borderRadius: "16px", border: "1px solid var(--line)", width: "100%", boxSizing: "border-box" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                <span className="eyebrow" style={{ color: "var(--accent)", margin: 0, fontSize: "10px" }}>
+                  WHY: Lowers limbic threat response to eliminate procrastination
+                </span>
+                <span style={{ font: "700 12px 'DM Mono', monospace", color: "var(--muted)" }}>⏱️ 2 MINUTES</span>
+              </div>
+
+              <h4 style={{ margin: "0 0 6px", fontSize: "16px", color: "var(--ink)", fontWeight: 700 }}>Interactive Task Shrinker</h4>
+              <p style={{ fontSize: "12px", color: "var(--muted)", margin: "0 0 16px" }}>
+                Type a task you're avoiding. We'll shrink it until initiation friction vanishes.
               </p>
 
-              {memSequence.length === 0 ? (
-                <Button onClick={startMemoryGame}>
-                  <Sparkles size={16} /> Generate Sequence
+              {/* Task Input Box */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "18px" }}>
+                <input
+                  type="text"
+                  placeholder="e.g. Write 10-page report, Study 5 chapters..."
+                  value={bigTaskInput}
+                  onChange={e => setBigTaskInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleShrinkTask()}
+                  style={{
+                    flex: 1,
+                    minWidth: "200px",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: "1px solid var(--line)",
+                    fontSize: "13px",
+                    background: "var(--surface)"
+                  }}
+                />
+                <Button onClick={handleShrinkTask} style={{ minWidth: "120px", justifyContent: "center" }}>
+                  <Sparkles size={15} /> Shrink Task
                 </Button>
+              </div>
+
+              {/* Shrunk Steps Result */}
+              {shrunkSteps.length > 0 ? (
+                <div style={{ display: "grid", gap: "10px", marginBottom: "16px" }}>
+                  <span className="eyebrow" style={{ margin: 0, color: "var(--accent)" }}>Your 3 Micro-Steps:</span>
+                  {shrunkSteps.map((s, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        background: "var(--surface)",
+                        padding: "12px 14px",
+                        borderRadius: "12px",
+                        border: "1px solid var(--line)",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "10px"
+                      }}
+                    >
+                      <div>
+                        <span style={{ font: "700 11px 'DM Mono', monospace", color: "var(--accent)", display: "block", marginBottom: "2px" }}>
+                          STEP {idx + 1} ({s.mins} MINS)
+                        </span>
+                        <strong style={{ fontSize: "13px", color: "var(--ink)" }}>{s.step}</strong>
+                      </div>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => launchMicroStep(s.step, s.mins)}
+                        style={{ fontSize: "11px", padding: "6px 12px", gap: "6px" }}
+                      >
+                        <Play size={13} /> Start ({s.mins}m)
+                      </button>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <div style={{ display: "grid", gap: "10px" }}>
-                  <div style={{ font: "800 24px 'DM Mono', monospace", letterSpacing: "8px", color: "var(--accent)", textAlign: "center" }}>
-                    {memSequence.join(" ")}
+                <div style={{ display: "grid", gap: "8px", fontSize: "12.5px", marginBottom: "16px" }}>
+                  <div style={{ background: "var(--surface)", padding: "10px 14px", borderRadius: "10px", border: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Instead of <strong>"Study whole chapter"</strong> → <em>"Open page 42 & read title"</em></span>
+                    <button className="btn btn-soft" onClick={() => launchMicroStep("Open page 42", 2)} style={{ fontSize: "11px", padding: "4px 10px" }}>Try 2m</button>
                   </div>
-                  <input
-                    type="text"
-                    maxLength={5}
-                    placeholder="Enter 5 digits..."
-                    value={memInput}
-                    onChange={e => setMemInput(e.target.value)}
-                    style={{ padding: "10px", borderRadius: "8px", border: "1px solid var(--line)", textAlign: "center", font: "700 18px 'DM Mono', monospace" }}
-                  />
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <Button onClick={checkMemory} style={{ flex: 1 }}>
-                      Check Answer
-                    </Button>
-                    <button className="btn btn-ghost" onClick={startMemoryGame}>
-                      <RefreshCw size={15} /> New
-                    </button>
+                  <div style={{ background: "var(--surface)", padding: "10px 14px", borderRadius: "10px", border: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Instead of <strong>"Build entire project"</strong> → <em>"Open project folder & index file"</em></span>
+                    <button className="btn btn-soft" onClick={() => launchMicroStep("Open project folder", 2)} style={{ fontSize: "11px", padding: "4px 10px" }}>Try 2m</button>
                   </div>
-                  {memResult === "success" && (
-                    <div style={{ color: "#10b981", fontWeight: 700, fontSize: "13px", textAlign: "center", display: "flex", gap: "6px", alignItems: "center", justifyContent: "center" }}>
-                      <Check size={16} /> Excellent recall in {swMinutes}:{swSeconds}!
-                    </div>
-                  )}
-                  {memResult === "fail" && (
-                    <div style={{ color: "#ef4444", fontWeight: 700, fontSize: "13px", textAlign: "center" }}>
-                      Not quite — try again!
-                    </div>
-                  )}
                 </div>
               )}
+
+              <div style={{ background: "var(--surface)", padding: "10px 14px", borderRadius: "10px", border: "1px solid var(--line)" }}>
+                <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)", fontStyle: "italic" }}>
+                  "Action creates motivation, not the other way around. Perform only step 1."
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Exercise 3: Interactive Mental Unload Workspace */}
+          {activeExercise === "unload" && (
+            <div style={{ background: "var(--surface-2)", padding: "clamp(14px, 3vw, 20px)", borderRadius: "16px", border: "1px solid var(--line)", width: "100%", boxSizing: "border-box" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                <span className="eyebrow" style={{ color: "var(--accent)", margin: 0, fontSize: "10px" }}>
+                  WHY: Clears working memory overload & racing thoughts
+                </span>
+                <span style={{ font: "700 12px 'DM Mono', monospace", color: "var(--muted)" }}>⏱️ 2 MINUTES</span>
+              </div>
+
+              <h4 style={{ margin: "0 0 6px", fontSize: "16px", color: "var(--ink)", fontWeight: 700 }}>Mental Unload Workspace</h4>
+              <p style={{ fontSize: "12px", color: "var(--muted)", margin: "0 0 16px" }}>
+                Write down any thoughts taking up space in your head. Tag them to clear mental clutter.
+              </p>
+
+              {/* Add Thought Form */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "18px" }}>
+                <input
+                  type="text"
+                  placeholder="What is occupying space in your head?"
+                  value={thoughtInput}
+                  onChange={e => setThoughtInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAddThought()}
+                  style={{ flex: 1, minWidth: "180px", padding: "10px 14px", borderRadius: "10px", border: "1px solid var(--line)", fontSize: "13px", background: "var(--surface)" }}
+                />
+                <select
+                  value={thoughtTag}
+                  onChange={e => setThoughtTag(e.target.value as any)}
+                  style={{ padding: "10px", borderRadius: "10px", border: "1px solid var(--line)", fontSize: "12px", background: "var(--surface)" }}
+                >
+                  <option value="now">🎯 Do Now (Focus Target)</option>
+                  <option value="later">📅 Do Later (Calendar)</option>
+                  <option value="drop">🍃 Let Go (Not Actionable)</option>
+                </select>
+                <Button onClick={handleAddThought} style={{ padding: "10px 16px" }}>
+                  <Plus size={15} /> Add
+                </Button>
+              </div>
+
+              {/* Unloaded Items Grid */}
+              <div style={{ display: "grid", gap: "8px", marginBottom: "16px" }}>
+                {unloadItems.map(item => (
+                  <div
+                    key={item.id}
+                    style={{
+                      background: "var(--surface)",
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      border: "1px solid var(--line)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "10px",
+                      flexWrap: "wrap"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          padding: "3px 8px",
+                          borderRadius: "99px",
+                          background: item.tag === "now" ? "var(--accent-soft)" : item.tag === "later" ? "rgba(59,130,246,0.1)" : "rgba(107,114,128,0.1)",
+                          color: item.tag === "now" ? "var(--accent)" : item.tag === "later" ? "#3b82f6" : "var(--muted)"
+                        }}
+                      >
+                        {item.tag === "now" ? "DO NOW" : item.tag === "later" ? "DO LATER" : "LET GO"}
+                      </span>
+                      <span style={{ fontSize: "13px", color: "var(--ink)", fontWeight: 500 }}>{item.text}</span>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      {item.tag === "now" && (
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => launchMicroStep(item.text, 5)}
+                          style={{ fontSize: "10.5px", padding: "4px 10px", gap: "4px" }}
+                        >
+                          <Play size={12} /> Set as Focus Target
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteThought(item.id)}
+                        style={{ border: 0, background: "none", color: "var(--muted)", cursor: "pointer", padding: "4px" }}
+                        title="Delete thought"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Exercise 4: Interactive 3-Sense Attention Anchor */}
+          {activeExercise === "anchor" && (
+            <div style={{ background: "var(--surface-2)", padding: "clamp(14px, 3vw, 20px)", borderRadius: "16px", border: "1px solid var(--line)", width: "100%", boxSizing: "border-box" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                <span className="eyebrow" style={{ color: "var(--accent)", margin: 0, fontSize: "10px" }}>
+                  WHY: Grounds sensory awareness in the immediate environment
+                </span>
+                <span style={{ font: "700 12px 'DM Mono', monospace", color: "var(--muted)" }}>⏱️ 45 SECONDS</span>
+              </div>
+
+              <h4 style={{ margin: "0 0 12px", fontSize: "16px", color: "var(--ink)", fontWeight: 700 }}>3-Sense Attention Anchor</h4>
+
+              {/* 3 Sensory Steps Cards */}
+              <div style={{ display: "grid", gap: "10px", marginBottom: "18px" }}>
+                <div style={{ background: anchorStep === 0 ? "var(--accent-soft)" : "var(--surface)", border: anchorStep === 0 ? "1px solid var(--accent)" : "1px solid var(--line)", padding: "12px 16px", borderRadius: "12px", transition: "all 0.2s ease", display: "flex", alignItems: "center", gap: "12px" }}>
+                  <Eye size={22} color={anchorStep === 0 ? "var(--accent)" : "var(--muted)"} />
+                  <div>
+                    <strong style={{ display: "block", fontSize: "13px", color: "var(--ink)" }}>1. Visual Anchor</strong>
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>Notice 1 object in front of you. Focus on its shape and color for 5 seconds.</span>
+                  </div>
+                </div>
+
+                <div style={{ background: anchorStep === 1 ? "var(--accent-soft)" : "var(--surface)", border: anchorStep === 1 ? "1px solid var(--accent)" : "1px solid var(--line)", padding: "12px 16px", borderRadius: "12px", transition: "all 0.2s ease", display: "flex", alignItems: "center", gap: "12px" }}>
+                  <Ear size={22} color={anchorStep === 1 ? "var(--accent)" : "var(--muted)"} />
+                  <div>
+                    <strong style={{ display: "block", fontSize: "13px", color: "var(--ink)" }}>2. Auditory Anchor</strong>
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>Listen for 1 ambient sound (fan, distant traffic, your own breath).</span>
+                  </div>
+                </div>
+
+                <div style={{ background: anchorStep === 2 ? "var(--accent-soft)" : "var(--surface)", border: anchorStep === 2 ? "1px solid var(--accent)" : "1px solid var(--line)", padding: "12px 16px", borderRadius: "12px", transition: "all 0.2s ease", display: "flex", alignItems: "center", gap: "12px" }}>
+                  <Hand size={22} color={anchorStep === 2 ? "var(--accent)" : "var(--muted)"} />
+                  <div>
+                    <strong style={{ display: "block", fontSize: "13px", color: "var(--ink)" }}>3. Tactile Anchor</strong>
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>Feel your feet flat on the floor or the texture of your desk.</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
+                <Button onClick={() => setAnchorStep(s => (s + 1) % 3)} style={{ flex: 1, justifyContent: "center" }}>
+                  <span>Next Sense Step</span> <ArrowRight size={15} />
+                </Button>
+                <Button variant="soft" onClick={() => launchMicroStep("Anchored Focus", 5)} style={{ flex: 1, justifyContent: "center" }}>
+                  <Play size={15} /> Launch 5m Session
+                </Button>
+              </div>
             </div>
           )}
         </Card>

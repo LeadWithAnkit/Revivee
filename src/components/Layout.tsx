@@ -7,10 +7,12 @@ import { db, type ConnectionStatus } from "../lib/db";
 
 const nav = [
   { to: "/", label: "Today", icon: Home },
+  { to: "/tracker", label: "Daily check-in", icon: Sparkles },
+  { to: "/focus", label: "Focus", icon: Focus },
+  { to: "/reset", label: "Reset", icon: RotateCcw },
   { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/insights", label: "Insights", icon: ChartNoAxesCombined },
   { to: "/mind-map", label: "Mind map", icon: Map },
-  { to: "/focus", label: "Focus", icon: Focus },
   { to: "/learn", label: "Learn", icon: Compass },
   { to: "/sources", label: "Sources", icon: Library },
 ];
@@ -82,14 +84,6 @@ export function Layout() {
         </nav>
 
         <div className="sidebar-bottom">
-          <NavLink to="/tracker" onClick={() => setOpen(false)}>
-            <Sparkles size={18} />
-            <span>Daily check-in</span>
-          </NavLink>
-          <NavLink to="/reset" onClick={() => setOpen(false)}>
-            <RotateCcw size={18} />
-            <span>Reset</span>
-          </NavLink>
           <NavLink to="/settings" onClick={() => setOpen(false)}>
             <Settings size={18} />
             <span>Settings & backup</span>

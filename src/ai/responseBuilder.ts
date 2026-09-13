@@ -7,23 +7,76 @@ export function buildCompanionResponse(ctx: CompanionResponseContext): Companion
   const topKnowledge = knowledgeItems[0];
   const evidenceBadge = topKnowledge ? {
     level: topKnowledge.evidenceLevel,
-    source: topKnowledge.sourceIds[0] || "REVIVE Knowledge"
-  } : { level: "HIGH", source: "REVIVE Guide" };
+    source: topKnowledge.sourceIds[0] || "REVIVE Knowledge Base"
+  } : { level: "HIGH", source: "REVIVE Behavioral Science" };
 
-  // 1. "What should I do today?" / "What should I do now?" Engine
+  // Personal context summary if available
+  const obs = context.todayObs;
+  const personalSummary = obs
+    ? `(Today's log: ${obs.sleepHours}h sleep, ${obs.energy}/10 energy, ${obs.concentration}/10 focus)`
+    : "";
+
+  // 1. Navigation / App Features Intent
+  if (intent === "APP_NAVIGATION" || q.includes("where") || q.includes("how to track")) {
+    if (q.includes("mood") || q.includes("sleep") || q.includes("check-in") || q.includes("track")) {
+      return {
+        text: "You can track your daily energy, focus, sleep, hydration, and mood in the 'Daily check-in' tab.\n\nAll entries are stored 100% locally on your device in isolated browser storage.",
+        evidenceBadge: { level: "HIGH", source: "REVIVE Privacy Architecture" },
+        actionLabel: "Open Daily Check-in",
+        actionType: "log-tracker"
+      };
+    }
+    if (q.includes("calendar") || q.includes("patterns") || q.includes("progress")) {
+      return {
+        text: "You can view your monthly color-coded patterns and observations under 'Calendar' and statistical trends under 'Insights'.",
+        evidenceBadge: { level: "HIGH", source: "REVIVE Analytics" },
+        actionLabel: "View Calendar",
+        actionType: "open-reset"
+      };
+    }
+    return {
+      text: "REVIVE is organized into 4 core daily pillars: Today's Dashboard, Daily Check-in, Focus Soundscapes/Timers, and Acute Reset tools.",
+      evidenceBadge: { level: "HIGH", source: "REVIVE Guide" },
+      actionLabel: "Go to Today",
+      actionType: "open-reset"
+    };
+  }
+
+  // 2. Productivity / Planning Intent
+  if (intent === "PRODUCTIVITY" || q.includes("plan my next") || q.includes("what first")) {
+    const focusTime = obs?.concentration ?? 6;
+    return {
+      text: `Let's break the next 3 hours into a low-friction structure. ${personalSummary}\n\n1. Block 1 (25m): Single high-priority task initiation.\n2. Rest (5m): Hydrate & step away.\n3. Block 2 (45m): Deep work with binaural audio.`,
+      evidenceBadge: { level: "HIGH", source: "Cirillo / APA Practice Guidelines" },
+      actionLabel: "Start 25-Min Focus Session",
+      actionType: "start-25m"
+    };
+  }
+
+  // 3. Ambiguous / Overwhelmed / Bad Day Intent
+  if (intent === "AMBIGUOUS" || q === "help" || q === "bad day" || q === "nothing is working") {
+    return {
+      text: "When feeling stuck or overwhelmed, do not try to fix everything at once. Let's do a 60-second nervous system reset first.",
+      evidenceBadge: { level: "HIGH", source: "Vagal Autonomic Regulation" },
+      actionLabel: "Start 60s Box Breathing",
+      actionType: "open-reset"
+    };
+  }
+
+  // 4. "What should I do today?" / Daily Guidance
   if (q.includes("what should i do") || q.includes("do today") || intent === "GENERAL" && q.includes("today")) {
-    const energy = context.todayObs?.energy ?? 5;
+    const energy = obs?.energy ?? 5;
     let actionText = "";
     if (energy <= 4) {
-      actionText = "Your logged energy is lower today. Let's make starting tiny: take 5 minutes and solve 1 basic question or review 1 error entry. You do not need to finish a long block.";
+      actionText = `Your logged energy is low today (${energy}/10). Start tiny: take 5 minutes to complete one micro-task. You don't need to push through exhaustion.`;
     } else if (energy <= 7) {
-      actionText = "Your energy is moderate. A 20–30 minute focused session with a single clear output is recommended.";
+      actionText = `Your energy is moderate (${energy}/10). A 25-minute focused block with 40Hz audio is ideal right now.`;
     } else {
-      actionText = "Your energy is high! This is a great window for a 45-minute deep focus session or problem set analysis.";
+      actionText = `Your energy is high (${energy}/10)! This is a great window for a 45-minute deep focus block.`;
     }
 
     return {
-      text: `${actionText}\n\nSuggested Action: ${intervention.name}\n${intervention.steps.map(s => `• ${s}`).join("\n")}`,
+      text: `${actionText}\n\nAction Step: ${intervention.name}\n${intervention.steps.slice(0, 2).map(s => `• ${s}`).join("\n")}`,
       evidenceBadge,
       actionLabel: intervention.actionLabel,
       actionType: intervention.actionType,
@@ -31,46 +84,46 @@ export function buildCompanionResponse(ctx: CompanionResponseContext): Companion
     };
   }
 
-  // 2. Procrastination / Can't Study / Wasted Day
-  if (q.includes("can't study") || q.includes("cannot study") || q.includes("wasted") || q.includes("procrastinat")) {
+  // 5. Procrastination / Can't Study / Focus Crisis
+  if (q.includes("can't study") || q.includes("cannot study") || q.includes("wasted") || q.includes("procrastinat") || q.includes("can't focus")) {
     return {
-      text: `Don't try to recover the whole day. Let's recover the next 5 minutes.\n\nProcrastination is an emotional regulation response to task initiation pressure or uncertainty—not laziness.\n\nTry this 5-minute start:\n${intervention.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`,
-      evidenceBadge: { level: "HIGH", source: "PubMed / Psychological Bulletin" },
-      actionLabel: intervention.actionLabel,
-      actionType: intervention.actionType,
+      text: `Procrastination is an emotional task-initiation response, not laziness. ${personalSummary}\n\nDon't try to save the entire day—just start for 5 minutes without pressure to finish.`,
+      evidenceBadge: { level: "HIGH", source: "Psychological Bulletin (Steel, 2007)" },
+      actionLabel: "Start 5-Minute Micro Timer",
+      actionType: "start-5m",
       interventionId: intervention.id
     };
   }
 
-  // 3. Dopamine Queries & Debunking
-  if (q.includes("dopamine")) {
+  // 6. Dopamine & Reward Science
+  if (intent === "DOPAMINE" || q.includes("dopamine")) {
     return {
-      text: `Dopamine is primarily a neurotransmitter of anticipation, motivation, and reward prediction error—not a raw pleasure chemical.\n\nInternet health claims that social media 'depletes' or 'destroys' your dopamine supply are simplified myths. Procrastination or screen checking reflects competing incentive cues and environment friction.\n\nRather than attempting extreme 'dopamine detoxes', shrink task friction and structure small progress micro-milestones.`,
-      evidenceBadge: { level: "HIGH", source: "National Institute on Drug Abuse (NIDA)" },
+      text: "Dopamine governs anticipation and reward prediction error, not pleasure. Social media doesn't 'deplete' your dopamine supply permanently; it alters immediate cue thresholds. Focus on reducing task initiation friction.",
+      evidenceBadge: { level: "HIGH", source: "NIDA / Neurobiology Review" },
       actionLabel: "Try 5-Min Task Shrinking",
       actionType: "start-5m",
-      cautionNotice: "Dopamine levels cannot be self-diagnosed and should not be used to assign shame to rest."
+      cautionNotice: "Avoid self-diagnosing neurotransmitter levels or assigning shame to rest."
     };
   }
 
-  // 4. Sleep & Fatigue
+  // 7. Sleep & Rest Architecture
   if (intent === "SLEEP" || q.includes("sleep")) {
-    const sleepInfo = context.todayObs
-      ? `Today's recorded sleep: ${context.todayObs.sleepHours}h (Quality: ${context.todayObs.sleepQuality}/10).`
+    const sleepInfo = obs
+      ? `Today's recorded sleep: ${obs.sleepHours}h (Quality: ${obs.sleepQuality}/10).`
       : "You haven't logged today's sleep yet.";
 
     return {
-      text: `${sleepInfo}\n\nAdults generally require 7+ hours of consistent sleep for optimal working memory and focus. Shifting sleep-wake schedules shifts biological clocks, causing daytime tiredness.\n\n${patternStatement ? `Personal Pattern: ${patternStatement}\n\n` : ""}Next step: Maintain a consistent wake-up window and protect an 8-hour sleep opportunity tonight.`,
-      evidenceBadge: { level: "HIGH", source: "CDC / NICE Guidelines" },
-      actionLabel: "Log Daily Check-in",
+      text: `${sleepInfo}\n\nConsistent sleep duration supports working memory and emotional resilience. Evidence suggests protecting an 8-hour sleep opportunity tonight and maintaining a steady morning wake window.`,
+      evidenceBadge: { level: "HIGH", source: "CDC / Sleep Research Society" },
+      actionLabel: "Log Sleep Check-in",
       actionType: "log-tracker"
     };
   }
 
-  // 5. Default Knowledge-Backed Response
+  // 8. Default Knowledge-Backed Fallback Response
   if (topKnowledge) {
     return {
-      text: `${topKnowledge.claim}\n\n${topKnowledge.explanation}\n\n${patternStatement ? `Personal Pattern: ${patternStatement}\n\n` : ""}Suggested Action:\n${topKnowledge.usefulActions.map(a => `• ${a}`).join("\n")}`,
+      text: `${topKnowledge.claim}\n\n${topKnowledge.explanation}\n\n${patternStatement ? `Personal Pattern: ${patternStatement}\n\n` : ""}Suggested Action:\n${topKnowledge.usefulActions.slice(0, 2).map(a => `• ${a}`).join("\n")}`,
       evidenceBadge,
       actionLabel: intervention.actionLabel,
       actionType: intervention.actionType,
@@ -80,9 +133,10 @@ export function buildCompanionResponse(ctx: CompanionResponseContext): Companion
   }
 
   return {
-    text: `I'm here to help you decide the next small action, interpret your recorded patterns, or navigate REVIVE's research base.\n\nTry asking: "I can't study", "What should I do today?", "Explain dopamine", "How was my sleep?", or "Show my patterns".`,
+    text: "I'm here to help you take the next small action, review recorded patterns, or explore REVIVE's research.\n\nTry asking: 'I can't focus', 'Plan my next 3 hours', 'How was my sleep?', or 'What should I do today?'",
     evidenceBadge: { level: "HIGH", source: "REVIVE Companion" },
     actionLabel: "Start 5-Minute Timer",
     actionType: "start-5m"
   };
 }
+

@@ -125,34 +125,25 @@ export function ResetPanel({ compact = false }: { compact?: boolean }) {
     setAudioPlaying(false);
   };
 
-  // Breathing Phase Calculation (4s Inhale, 4s Hold, 4s Exhale, 4s Pause)
+  // Comfortable Slow Breathing Phase (4s Inhale, 2s Hold, 6s Exhale) - No uncomfortable breath holding
   const getBreathPhase = () => {
-    if (!running) return "Ready to start";
+    if (!running) return "Ready to start (Keep breathing comfortable)";
     const elapsed = 60 - secondsLeft;
-    const phaseIndex = Math.floor((elapsed % 16) / 4);
-    switch (phaseIndex) {
-      case 0:
-        return "Inhale slowly...";
-      case 1:
-        return "Hold gently...";
-      case 2:
-        return "Exhale fully...";
-      case 3:
-        return "Pause and relax...";
-      default:
-        return "Breathe";
-    }
+    const phaseIndex = Math.floor((elapsed % 12) / 2); // 12-second cycle: 0-1 Inhale (4s), 2 Hold (2s), 3-5 Exhale (6s)
+    if (phaseIndex < 2) return "Inhale gently (4s)...";
+    if (phaseIndex === 2) return "Soft pause (2s)...";
+    return "Exhale slowly (6s)...";
   };
 
   const getBreathScale = () => {
     if (!running) return 1;
     const elapsed = 60 - secondsLeft;
-    const phaseIndex = Math.floor((elapsed % 16) / 4);
-    if (phaseIndex === 0) return 1.25; // Inhale
-    if (phaseIndex === 1) return 1.25; // Hold
-    if (phaseIndex === 2) return 0.85; // Exhale
-    return 0.85; // Pause
+    const phaseIndex = Math.floor((elapsed % 12) / 2);
+    if (phaseIndex < 2) return 1.25; // Inhale expansion
+    if (phaseIndex === 2) return 1.25; // Pause
+    return 0.85; // Slow Exhale contraction
   };
+
 
   return (
     <Card className={compact ? "reset-compact" : "reset-panel"}>
@@ -236,7 +227,11 @@ export function ResetPanel({ compact = false }: { compact?: boolean }) {
               </span>
             </div>
             <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--accent)" }}>{getBreathPhase()}</span>
+            <small style={{ fontSize: "11px", color: "var(--muted)", textAlign: "center", display: "block" }}>
+              Keep breathing comfortable. Stop if you feel dizzy or uncomfortable.
+            </small>
             <div style={{ display: "flex", gap: "10px", marginTop: "4px", alignItems: "center" }}>
+
               <button
                 className="btn btn-primary"
                 onClick={() => setRunning(r => !r)}
