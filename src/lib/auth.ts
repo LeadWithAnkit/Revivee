@@ -23,38 +23,19 @@ function simpleHash(str: string): string {
   return "h_" + Math.abs(hash).toString(36) + "_" + btoa(str).substring(0, 8);
 }
 
-const defaultDummyUsers: StoredUser[] = [
-  {
-    id: "u_ankit_demo",
-    name: "Ankit",
-    identifier: "9876543210",
-    createdAt: "2026-09-01T00:00:00.000Z",
-    passwordHash: simpleHash("password123")
-  },
-  {
-    id: "u_alex_demo",
-    name: "Alex Chen",
-    identifier: "9123456789",
-    createdAt: "2026-09-01T00:00:00.000Z",
-    passwordHash: simpleHash("password123")
-  }
-];
-
 function getStoredUsers(): StoredUser[] {
   try {
     const raw = localStorage.getItem(USERS_KEY);
     if (!raw) {
-      saveUsers(defaultDummyUsers);
-      return defaultDummyUsers;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      saveUsers(defaultDummyUsers);
-      return defaultDummyUsers;
+    if (!Array.isArray(parsed)) {
+      return [];
     }
     return parsed;
   } catch (e) {
-    return defaultDummyUsers;
+    return [];
   }
 }
 

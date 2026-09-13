@@ -292,65 +292,6 @@ export default function Auth() {
               <ArrowRight size={16} />
             </button>
 
-            {/* Quick Demo Login Accounts */}
-            <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--line)" }}>
-              <span style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "8px", textAlign: "center" }}>
-                OR TRY A DEMO ACCOUNT (1-CLICK LOG IN)
-              </span>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIdentifier("9876543210");
-                    setPassword("password123");
-                    const res = login("9876543210", "password123");
-                    if (res.success) {
-                      setSuccessMsg("Logged in as Ankit!");
-                      setTimeout(() => navigate("/"), 400);
-                    }
-                  }}
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: "10px",
-                    border: "1px solid var(--line)",
-                    background: "var(--surface-2)",
-                    color: "var(--ink)",
-                    fontSize: "11.5px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    textAlign: "center"
-                  }}
-                >
-                  👤 <strong>Ankit</strong> (Demo)
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIdentifier("9123456789");
-                    setPassword("password123");
-                    const res = login("9123456789", "password123");
-                    if (res.success) {
-                      setSuccessMsg("Logged in as Alex Chen!");
-                      setTimeout(() => navigate("/"), 400);
-                    }
-                  }}
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: "10px",
-                    border: "1px solid var(--line)",
-                    background: "var(--surface-2)",
-                    color: "var(--ink)",
-                    fontSize: "11.5px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    textAlign: "center"
-                  }}
-                >
-                  👤 <strong>Alex Chen</strong> (Demo)
-                </button>
-              </div>
-            </div>
           </form>
         </Card>
 
