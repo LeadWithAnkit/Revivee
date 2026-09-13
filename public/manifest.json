@@ -1,0 +1,19 @@
+{
+  "short_name": "REVIVE",
+  "name": "REVIVE — Personal Cognition & Recovery Workspace",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#f5f3ee",
+  "theme_color": "#f5f3ee",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "description": "A calm, evidence-informed personal cognition, focus, and recovery workspace."
+}
