@@ -8,8 +8,8 @@ type ContextValue = {
   theme: Theme;
   toggleTheme: () => void;
   currentUser: User | null;
-  login: (identifier: string, password: string) => { success: boolean; user?: User; error?: string };
-  signup: (name: string, identifier: string, password: string) => { success: boolean; user?: User; error?: string };
+  login: (identifier: string, password: string, isPrivacyMode?: boolean) => { success: boolean; user?: User; error?: string };
+  signup: (name: string, identifier: string, password: string, isPrivacyMode?: boolean) => { success: boolean; user?: User; error?: string };
   logout: () => void;
 };
 
@@ -40,15 +40,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return next;
         }),
       currentUser,
-      login: (identifier: string, password: string) => {
-        const res = auth.login(identifier, password);
+      login: (identifier: string, password: string, isPrivacyMode = false) => {
+        const res = auth.login(identifier, password, isPrivacyMode);
         if (res.success && res.user) {
           setCurrentUser(res.user);
         }
         return res;
       },
-      signup: (name: string, identifier: string, password: string) => {
-        const res = auth.signup(name, identifier, password);
+      signup: (name: string, identifier: string, password: string, isPrivacyMode = false) => {
+        const res = auth.signup(name, identifier, password, isPrivacyMode);
         if (res.success && res.user) {
           setCurrentUser(res.user);
         }

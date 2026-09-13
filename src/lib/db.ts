@@ -124,6 +124,14 @@ export type ConnectionStatus = {
 };
 
 export async function checkConnectionStatus(): Promise<ConnectionStatus> {
+  if (auth.isPrivacyMode()) {
+    return {
+      mode: "local",
+      connected: true,
+      message: "Privacy Mode Active (100% Local Storage)",
+      database: "Local PWA IndexedDB"
+    };
+  }
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 3000);
@@ -155,8 +163,9 @@ export async function checkConnectionStatus(): Promise<ConnectionStatus> {
   };
 }
 
-// API Sync Helpers
+// API Sync Helpers (Bypassed in Privacy Mode)
 async function syncApiPost<T>(endpoint: string, payload: T): Promise<boolean> {
+  if (auth.isPrivacyMode()) return false;
   try {
     const userId = auth.getActiveUserId();
     const res = await fetch(endpoint, {
@@ -171,6 +180,7 @@ async function syncApiPost<T>(endpoint: string, payload: T): Promise<boolean> {
 }
 
 async function syncApiGet<T>(endpoint: string): Promise<T[] | null> {
+  if (auth.isPrivacyMode()) return null;
   try {
     const userId = auth.getActiveUserId();
     const res = await fetch(`${endpoint}?userId=${encodeURIComponent(userId)}`, {

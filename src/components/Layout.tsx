@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Navigate, useNavigate } from "react-router-dom";
-import { CalendarDays, ChartNoAxesCombined, Compass, Focus, Home, Library, Map, Menu, Moon, RotateCcw, Settings, Sparkles, X, LogOut, User as UserIcon } from "lucide-react";
+import { CalendarDays, ChartNoAxesCombined, Compass, Focus, Home, Library, Map, Menu, Moon, RotateCcw, Settings, Sparkles, X, LogOut, User as UserIcon, Shield, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTheme, useAuth } from "../context";
 import { Chatbot } from "./Chatbot";
@@ -29,6 +29,22 @@ export function Layout() {
   useEffect(() => {
     db.checkConnectionStatus().then(setStatus);
   }, []);
+
+  const handleExportBackup = async () => {
+    try {
+      const data = await db.exportAll();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const monthStr = new Date().toISOString().slice(0, 7);
+      a.download = `revive-privacy-backup-${monthStr}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export error", err);
+    }
+  };
 
   // Protect all app routes: If not logged in, redirect to /auth
   if (!currentUser) {
@@ -97,7 +113,7 @@ export function Layout() {
                   textOverflow: "ellipsis"
                 }}
               >
-                {currentUser.name || currentUser.identifier}
+                {currentUser.name || currentUser.identifier} {currentUser.isPrivacyMode ? "🔒" : ""}
               </span>
             </div>
             <button
@@ -142,6 +158,38 @@ export function Layout() {
             <span className="status-dot" style={{ background: status.connected ? "#10b981" : "#ef4444" }} />
           </div>
         </header>
+
+        {/* Monthly Privacy Mode Backup Banner */}
+        {currentUser?.isPrivacyMode && (
+          <div
+            style={{
+              background: "color-mix(in srgb, var(--accent) 12%, var(--surface))",
+              borderBottom: "1px solid var(--line)",
+              padding: "10px 20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              fontSize: "12px",
+              color: "var(--ink)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Shield size={16} color="var(--accent)" />
+              <span>
+                <strong>Privacy Mode Active:</strong> All data is stored 100% locally on this device. Export your JSON backup monthly!
+              </span>
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={handleExportBackup}
+              style={{ padding: "5px 12px", fontSize: "11.5px", gap: "5px", whiteSpace: "nowrap" }}
+            >
+              <Download size={13} /> Export JSON
+            </button>
+          </div>
+        )}
+
         <Outlet />
         <Chatbot />
       </main>

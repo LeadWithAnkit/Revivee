@@ -12,6 +12,7 @@ export default function Auth() {
   const [name, setName] = useState("");
   const [identifier, setIdentifier] = useState(""); // Email or Mobile Number
   const [password, setPassword] = useState("");
+  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -26,17 +27,17 @@ export default function Auth() {
     setSuccessMsg(null);
 
     if (mode === "login") {
-      const res = login(identifier, password);
+      const res = login(identifier, password, isPrivacyMode);
       if (res.success) {
-        setSuccessMsg("Welcome back to REVIVE!");
+        setSuccessMsg(isPrivacyMode ? "Welcome back to REVIVE! (Privacy Mode Active)" : "Welcome back to REVIVE!");
         setTimeout(() => navigate("/"), 400);
       } else {
         setError(res.error || "Authentication failed.");
       }
     } else {
-      const res = signup(name, identifier, password);
+      const res = signup(name, identifier, password, isPrivacyMode);
       if (res.success) {
-        setSuccessMsg("Account created successfully! Welcome to REVIVE.");
+        setSuccessMsg(isPrivacyMode ? "Account created in Privacy Mode! Local-only storage active." : "Account created successfully! Welcome to REVIVE.");
         setTimeout(() => navigate("/"), 400);
       } else {
         setError(res.error || "Signup failed.");
@@ -292,6 +293,35 @@ export default function Auth() {
               <ArrowRight size={16} />
             </button>
 
+            {/* Privacy Mode (Local-Only Storage) Option */}
+            <div
+              style={{
+                marginTop: "14px",
+                padding: "12px 14px",
+                borderRadius: "14px",
+                background: isPrivacyMode ? "color-mix(in srgb, var(--accent) 12%, var(--surface-2))" : "var(--surface-2)",
+                border: isPrivacyMode ? "1px solid var(--accent)" : "1px solid var(--line)",
+                transition: "all 0.2s"
+              }}
+            >
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer", userSelect: "none" }}>
+                <input
+                  type="checkbox"
+                  checked={isPrivacyMode}
+                  onChange={e => setIsPrivacyMode(e.target.checked)}
+                  style={{ marginTop: "3px", width: "16px", height: "16px", accentColor: "var(--accent)", cursor: "pointer" }}
+                />
+                <div>
+                  <div style={{ fontSize: "12.5px", fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: "5px" }}>
+                    <Shield size={14} color="var(--accent)" />
+                    <span>Privacy Mode (Local-Only Storage)</span>
+                  </div>
+                  <p className="muted" style={{ fontSize: "11.5px", margin: "3px 0 0", lineHeight: "1.45" }}>
+                    Data is stored 100% on this device (offline PWA mode). No cloud or MongoDB sync. Remember to export JSON backup monthly!
+                  </p>
+                </div>
+              </label>
+            </div>
           </form>
         </Card>
 
