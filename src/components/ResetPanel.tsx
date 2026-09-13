@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Wind, Footprints, Volume2, RotateCcw, Play, Pause, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Wind, Footprints, Volume2, VolumeX, RotateCcw, Play, Pause, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Card } from "./ui";
 import { db } from "../lib/db";
+import { soothingSounds } from "../lib/soundEffects";
 
 export function ResetPanel({ compact = false }: { compact?: boolean }) {
   const [activeTab, setActiveTab] = useState<"breath" | "walk" | "audio" | "grounding">("breath");
@@ -9,6 +10,7 @@ export function ResetPanel({ compact = false }: { compact?: boolean }) {
   const [running, setRunning] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Audio Context reference for 432Hz Calm Audio
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -24,7 +26,7 @@ export function ResetPanel({ compact = false }: { compact?: boolean }) {
     if (activeTab === "walk") setSecondsLeft(120);
   }, [activeTab]);
 
-  // Timer countdown handler
+  // Timer countdown handler with soothing sound effects
   useEffect(() => {
     if (!running) return;
     const interval = setInterval(() => {
@@ -33,15 +35,24 @@ export function ResetPanel({ compact = false }: { compact?: boolean }) {
           clearInterval(interval);
           setRunning(false);
           setCompleted(true);
+          if (soundEnabled) soothingSounds.playCompletionChime();
           logResetSuccess(activeTab);
           return 0;
+        }
+
+        if (soundEnabled) {
+          if (activeTab === "breath" && (prev - 1) % 4 === 0) {
+            soothingSounds.playPhaseChime();
+          } else {
+            soothingSounds.playTick();
+          }
         }
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [running, activeTab]);
+  }, [running, activeTab, soundEnabled]);
 
   // Log session completion to IndexedDB
   const logResetSuccess = async (type: string) => {
@@ -225,13 +236,21 @@ export function ResetPanel({ compact = false }: { compact?: boolean }) {
               </span>
             </div>
             <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--accent)" }}>{getBreathPhase()}</span>
-            <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: "4px", alignItems: "center" }}>
               <button
                 className="btn btn-primary"
                 onClick={() => setRunning(r => !r)}
                 style={{ padding: "8px 18px", fontSize: "12px", gap: "6px" }}
               >
                 {running ? <Pause size={15} /> : <Play size={15} />} {running ? "Pause" : "Start 60s Breath"}
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setSoundEnabled(s => !s)}
+                style={{ padding: "8px 10px", color: soundEnabled ? "var(--accent)" : "var(--muted)" }}
+                title={soundEnabled ? "Soothing Audio: ON" : "Soothing Audio: OFF"}
+              >
+                {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
               </button>
               <button
                 className="btn btn-ghost"
@@ -257,13 +276,21 @@ export function ResetPanel({ compact = false }: { compact?: boolean }) {
             <p style={{ fontSize: "12.5px", color: "var(--muted)", maxWidth: "360px", margin: 0 }}>
               Step away from screens. Take a 2-minute walk, stretch your spine, or get a glass of water to reset nervous system arousal.
             </p>
-            <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: "4px", alignItems: "center" }}>
               <button
                 className="btn btn-primary"
                 onClick={() => setRunning(r => !r)}
                 style={{ padding: "8px 18px", fontSize: "12px", gap: "6px" }}
               >
                 {running ? <Pause size={15} /> : <Play size={15} />} {running ? "Pause" : "Start 2m Shift"}
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setSoundEnabled(s => !s)}
+                style={{ padding: "8px 10px", color: soundEnabled ? "var(--accent)" : "var(--muted)" }}
+                title={soundEnabled ? "Soothing Audio: ON" : "Soothing Audio: OFF"}
+              >
+                {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
               </button>
               <button
                 className="btn btn-ghost"

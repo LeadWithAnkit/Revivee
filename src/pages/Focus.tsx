@@ -6,6 +6,7 @@ import { db } from "../lib/db";
 import { useAppData } from "../hooks/useAppData";
 import { catTopics } from "../data/content";
 import { focusAudio, soundscapeDatabase, type SoundscapeItem } from "../lib/audio";
+import { soothingSounds } from "../lib/soundEffects";
 
 interface VideoItem {
   id: string;
@@ -182,6 +183,8 @@ export default function Focus() {
     };
   }, []);
 
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
   // Main Timer Effect
   useEffect(() => {
     setLeft(minutes * 60);
@@ -193,13 +196,15 @@ export default function Focus() {
       setLeft(s => {
         if (s <= 1) {
           setRunning(false);
+          if (soundEnabled) soothingSounds.playCompletionChime();
           return 0;
         }
+        if (soundEnabled) soothingSounds.playTick();
         return s - 1;
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [running]);
+  }, [running, soundEnabled]);
 
   // Stopwatch Effect
   useEffect(() => {
@@ -327,6 +332,14 @@ export default function Focus() {
             <Button onClick={() => setRunning(v => !v)}>
               {running ? <Pause size={17} /> : <Play size={17} />} {running ? "Pause" : "Start"}
             </Button>
+            <button
+              className="icon-btn"
+              onClick={() => setSoundEnabled(s => !s)}
+              title={soundEnabled ? "Soothing Countdown Sound: ON" : "Soothing Countdown Sound: OFF"}
+              style={{ color: soundEnabled ? "var(--accent)" : "var(--muted)" }}
+            >
+              {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+            </button>
             <button className="icon-btn" onClick={() => { setRunning(false); setLeft(minutes * 60); }} aria-label="Reset timer">
               <RotateCcw size={17} />
             </button>
