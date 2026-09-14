@@ -123,6 +123,14 @@ export const soundscapeDatabase: SoundscapeItem[] = [
     noiseType: "pink",
     filterFreq: 800
   }
+    {
+    id: "Hans-Zimmer",
+    name: "🪐 Inception track",
+    category: "Ambient",
+    description: "Balanced 1/f sound spectrum for cognitive restoration.",
+    noiseType: "white",
+    filterFreq: 800
+  }
 ];
 
 class FocusSoundEngine {
